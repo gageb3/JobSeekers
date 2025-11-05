@@ -1,4 +1,4 @@
-# 🥀 Team Recruiters
+# 🥀 Team Job Seekers
 More about our [team](https://github.com/gageb3/Recruiters/wiki#team-members)<br>
 More about our [Process](https://github.com/gageb3/Recruiters/wiki/Dev-Processes)<br>
 Project: [Job Application Tracker](https://github.com/gageb3/Recruiters/wiki/Demo-Script)
