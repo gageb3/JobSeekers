@@ -94,7 +94,7 @@ async function connectDB() {
   }
 }
 
-// --- Authentication helpers ---
+// Authentication helpers
 const ensureAuth = (req, res, next) => {
   if (req.session && req.session.user) return next();
   return res.status(401).json({ error: 'Unauthorized' });
@@ -108,6 +108,37 @@ async function findUserByUsername(username) {
   return user;
 }
 
+// Find user document by either session id (which may be ObjectId or string) or username
+async function findUserBySession(sessionUser) {
+  if (!sessionUser) return null;
+  const users = db.collection('users');
+
+  // Try by id first if present
+  if (sessionUser.id) {
+    try {
+      if (ObjectId.isValid(sessionUser.id)) {
+        const maybe = await users.findOne({ _id: new ObjectId(sessionUser.id) });
+        if (maybe) return maybe;
+      }
+    } catch (err) {
+      // ignore and fall through to username
+    }
+  }
+
+  if (sessionUser.username) {
+    const byName = await users.findOne({ username: sessionUser.username });
+    if (byName) return byName;
+  }
+
+  // As a last resort try matching id as raw value (for in-memory stub where _id may be string)
+  if (sessionUser.id) {
+    const raw = await users.findOne({ _id: sessionUser.id });
+    if (raw) return raw;
+  }
+
+  return null;
+}
+
 async function createDefaultUserFromEnv() {
   const userEnv = process.env.AUTH_USER;
   const passEnv = process.env.AUTH_PASS;
@@ -117,7 +148,8 @@ async function createDefaultUserFromEnv() {
     const exists = await users.findOne({ username: userEnv });
     if (!exists) {
       const hash = await bcrypt.hash(passEnv, 10);
-      await users.insertOne({ username: userEnv, passwordHash: hash });
+      // create with empty jobs array for new model
+      await users.insertOne({ username: userEnv, passwordHash: hash, jobs: [] });
       console.log('Created default user from env');
     }
   } catch (err) {
@@ -175,7 +207,9 @@ app.post('/api/login', async (req, res) => {
     if (!verified) return res.status(401).json({ error: 'Invalid credentials' });
 
     // create session
-    req.session.user = { id: user._id, username: user.username };
+    // normalize id to string when possible to make in-memory and real DB consistent in session
+    const uid = user._id && user._id.toString ? user._id.toString() : user._id;
+    req.session.user = { id: uid, username: user.username };
     return res.json({ message: 'ok', username: user.username });
   } catch (err) {
     console.error('Login error', err);
@@ -196,10 +230,13 @@ app.post('/api/register', async (req, res) => {
     if (exists) return res.status(409).json({ error: 'User already exists' });
 
     const hash = await bcrypt.hash(password, 10);
+    // Insert user with an empty jobs array for the embedded model
     const users = db.collection('users');
-    const result = await users.insertOne({ username, passwordHash: hash });
+    const result = await users.insertOne({ username, passwordHash: hash, jobs: [] });
     // create session
-    req.session.user = { id: result.insertedId || null, username };
+    // store id as string when possible for consistency with in-memory stub
+    const userId = result.insertedId ? (typeof result.insertedId === 'object' && result.insertedId.toString ? result.insertedId.toString() : result.insertedId) : null;
+    req.session.user = { id: userId, username };
     return res.status(201).json({ message: 'created', username });
   } catch (err) {
     console.error('Register error', err);
@@ -226,19 +263,34 @@ app.post('/api/jobs', async (req, res) => {
   if (!req.session || !req.session.user) return res.status(401).json({ error: 'Unauthorized' });
   try {
     const { company, position, date } = req.body;
-    
+
     // Simple validation
     if (!company || !position || !date) {
       return res.status(400).json({ error: 'Company, position, and date are required' });
     }
 
-    const job = { company, position, date: new Date(date) };
-    const result = await db.collection('jobs').insertOne(job);
+    const users = db.collection('users');
+
+    // find current user document
+    const userDoc = await findUserBySession(req.session.user);
+    if (!userDoc) return res.status(401).json({ error: 'Unauthorized' });
+
+    // create job id - use ObjectId for real DB, string for in-memory stub
+  const jobId = client ? new ObjectId() : (Date.now().toString(36) + Math.random().toString(36).slice(2,8));
+
+    const job = { _id: jobId, company, position, date: new Date(date) };
+
+    // push into user's jobs array
+    const query = userDoc._id ? { _id: userDoc._id } : { username: userDoc.username };
+    await users.updateOne(query, { $push: { jobs: job } });
+
+    // return job with _id as string when possible
+    const returnedId = jobId && jobId.toString ? jobId.toString() : jobId;
 
     res.status(201).json({ 
       message: 'Job created successfully',
-      jobId: result.insertedId,
-      job: { ...job, _id: result.insertedId }
+      jobId: returnedId,
+      job: { ...job, _id: returnedId }
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to create job: ' + error.message });
@@ -249,7 +301,15 @@ app.post('/api/jobs', async (req, res) => {
 app.get('/api/jobs', async (req, res) => {
   if (!req.session || !req.session.user) return res.status(401).json({ error: 'Unauthorized' });
   try {
-    const jobs = await db.collection('jobs').find({}).toArray();
+    const users = db.collection('users');
+    const userDoc = await findUserBySession(req.session.user);
+    if (!userDoc) return res.status(401).json({ error: 'Unauthorized' });
+
+    const jobs = Array.isArray(userDoc.jobs) ? userDoc.jobs.map(j => ({
+      ...j,
+      _id: j._id && j._id.toString ? j._id.toString() : j._id
+    })) : [];
+
     res.json(jobs); // Return just the array for frontend simplicity
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch jobs: ' + error.message });
@@ -261,23 +321,30 @@ app.put('/api/jobs/:id', async (req, res) => {
   try {
   const { id } = req.params;
   const { company, position, date, stage } = req.body;
+    if (!req.session || !req.session.user) return res.status(401).json({ error: 'Unauthorized' });
 
-    // Validate ObjectId
-    if (!ObjectId.isValid(id)) {
-      return res.status(400).json({ error: 'Invalid job ID' });
+    const users = db.collection('users');
+
+    // Prepare job id for query: prefer ObjectId when valid, otherwise use string
+    let queryId = id;
+    if (ObjectId.isValid(id)) {
+      try { queryId = new ObjectId(id); } catch (e) { /* keep as string */ }
     }
 
-    const updateData = {};
-    if (company) updateData.company = company;
-    if (position) updateData.position = position;
-  if (date) updateData.date = new Date(date);
-  // allow updating stage (can be empty string)
-  if (stage !== undefined) updateData.stage = stage;
+    const updateOps = {};
+    if (company !== undefined) updateOps['jobs.$.company'] = company;
+    if (position !== undefined) updateOps['jobs.$.position'] = position;
+    if (date !== undefined) updateOps['jobs.$.date'] = new Date(date);
+    if (stage !== undefined) updateOps['jobs.$.stage'] = stage;
 
-    const result = await db.collection('jobs').updateOne(
-      { _id: new ObjectId(id) },
-      { $set: updateData }
-    );
+    if (Object.keys(updateOps).length === 0) return res.status(400).json({ error: 'No updatable fields provided' });
+
+    // Only update the job that belongs to the logged-in user
+    const userDoc = await findUserBySession(req.session.user);
+    if (!userDoc) return res.status(401).json({ error: 'Unauthorized' });
+
+    const q = { _id: userDoc._id, 'jobs._id': queryId };
+    const result = await users.updateOne(q, { $set: updateOps });
 
     if (result.matchedCount === 0) {
       return res.status(404).json({ error: 'Job not found' });
@@ -297,20 +364,29 @@ app.delete('/api/jobs/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Validate ObjectId
-    if (!ObjectId.isValid(id)) {
-      return res.status(400).json({ error: 'Invalid job ID' });
+    if (!req.session || !req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+
+    const users = db.collection('users');
+
+    // Prepare job id for query
+    let queryId = id;
+    if (ObjectId.isValid(id)) {
+      try { queryId = new ObjectId(id); } catch (e) { /* keep as string */ }
     }
 
-    const result = await db.collection('jobs').deleteOne({ _id: new ObjectId(id) });
+    const userDoc = await findUserBySession(req.session.user);
+    if (!userDoc) return res.status(401).json({ error: 'Unauthorized' });
 
-    if (result.deletedCount === 0) {
+    const result = await users.updateOne({ _id: userDoc._id }, { $pull: { jobs: { _id: queryId } } });
+
+    // result.modifiedCount should be 1 when a job removed
+    if (!result || result.modifiedCount === 0) {
       return res.status(404).json({ error: 'Job not found' });
     }
 
     res.json({ 
       message: 'Job deleted successfully',
-      deletedCount: result.deletedCount 
+      deletedCount: 1
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to delete job: ' + error.message });
@@ -321,11 +397,15 @@ app.delete('/api/jobs/:id', async (req, res) => {
 app.delete('/api/cleanup', async (req, res) => {
   if (!req.session || !req.session.user) return res.status(401).json({ error: 'Unauthorized' });
   try {
-    const result = await db.collection('jobs').deleteMany({});
+    const users = db.collection('users');
+    const userDoc = await findUserBySession(req.session.user);
+    if (!userDoc) return res.status(401).json({ error: 'Unauthorized' });
+
+    const result = await users.updateOne({ _id: userDoc._id }, { $set: { jobs: [] } });
 
     res.json({
-      message: `Database cleaned successfully! Removed ${result.deletedCount} jobs.`,
-      deletedCount: result.deletedCount 
+      message: `Database cleaned successfully! Removed jobs for user ${userDoc.username}.`,
+      deletedCount: result.modifiedCount
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to cleanup database: ' + error.message });
