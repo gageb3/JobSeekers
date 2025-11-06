@@ -4,9 +4,9 @@ More about our [Process](https://github.com/gageb3/Recruiters/wiki/Dev-Processes
 Project: [Job Application Tracker](https://github.com/gageb3/Recruiters/wiki/Demo-Script)
 
 ## USER STORY
-As a job seeker<br>
-I want to have a list of jobs I have applied to<br>
-so that I can keep track of my applications better
+**As a** job seeker<br>
+**I want to** have a list of jobs I have applied to<br>
+**so that I** can keep track of my applications better
 
 ## BLUF
 **- What:** A web based job application tracker that helps users organize, monitor, and analyze their job search progress in one place. <br>
@@ -28,9 +28,8 @@ so that I can keep track of my applications better
 - The Job Tracker App helps users keep all of their job search information in one organized place. It turns scattered notes, emails, and lists into an easy-to-use system where users can see what jobs they have applied for, track updates, and remember follow-ups. <br>
 - This will save time by cutting out repetitive tasks like checking multiple sites or retyping the same details. The app helps users stay on top of their job search, avoid missing deadlines, and make better decisions using organized information.
 
-## LINKS
-* [Product Proposal](https://github.com/gageb3/Recruiters/wiki/Product-Overview)
-* [OpenAPIDoc](docs/api-doc.md)
-* [Deployment URLs](docs/deployment-guide.md)
-* [Wiki](https://github.com/gageb3/Recruiters/wiki)
-* [Project Board](https://github.com/gageb3/Recruiters/issues)
+## QUICK ACCESS LINKS
+> 📖 [Product Proposal](https://github.com/gageb3/Recruiters/wiki/Product-Overview) <br>
+> 📚 [Wiki](https://github.com/gageb3/Recruiters/wiki) <br>
+> 📂 [Project Board](https://github.com/gageb3/Recruiters/issues) <br>
+> 📄 [Documents](https://github.com/gageb3/JobSeekers/tree/main/docs) <br>
