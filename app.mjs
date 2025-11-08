@@ -305,12 +305,99 @@ app.get('/api/jobs', async (req, res) => {
     const userDoc = await findUserBySession(req.session.user);
     if (!userDoc) return res.status(401).json({ error: 'Unauthorized' });
 
-    const jobs = Array.isArray(userDoc.jobs) ? userDoc.jobs.map(j => ({
-      ...j,
-      _id: j._id && j._id.toString ? j._id.toString() : j._id
-    })) : [];
+  // Parse query params for server-side filtering
+  // support comma-separated lists for company, position, stage
+  const { company, position, stage, dateFrom, dateTo, sort, all, q } = req.query || {};
+  // pagination
+  const page = Math.max(1, parseInt(req.query.page || '1', 10) || 1);
+  const pageSize = Math.max(1, parseInt(req.query.pageSize || '10', 10) || 10);
 
-    res.json(jobs); // Return just the array for frontend simplicity
+    // Helper to parse CSV into array
+    const parseList = (v) => {
+      if (!v) return null;
+      if (Array.isArray(v)) return v;
+      return String(v).split(',').map(s => s.trim()).filter(Boolean);
+    };
+
+    const companies = parseList(company);
+    const positions = parseList(position);
+    const stages = parseList(stage);
+
+    // If real Mongo client available, use aggregation to filter embedded array
+    if (client) {
+      const userId = userDoc._id;
+      // Build pipeline to unwind user.jobs, filter, sort and paginate
+      const pipeline = [];
+      pipeline.push({ $match: { _id: userId } });
+      pipeline.push({ $unwind: { path: '$jobs', preserveNullAndEmptyArrays: false } });
+
+      // Build match conditions on the unwound job document (target nested fields under 'jobs')
+      // Use keys like 'jobs.company', 'jobs.position' etc. Also support $or for q searches.
+      const jobMatch = {};
+      if (companies) jobMatch['jobs.company'] = { $in: companies };
+      if (positions) jobMatch['jobs.position'] = { $in: positions };
+      if (stages) jobMatch['jobs.stage'] = { $in: stages };
+      if (dateFrom || dateTo) {
+        const dateCond = {};
+        if (dateFrom) dateCond.$gte = new Date(dateFrom);
+        if (dateTo) dateCond.$lte = new Date(new Date(dateTo).setHours(23,59,59,999));
+        jobMatch['jobs.date'] = dateCond;
+      }
+      // full-text style search across company/position/stage
+      if (q) {
+        const regex = { $regex: q, $options: 'i' };
+        jobMatch.$or = [ { 'jobs.company': regex }, { 'jobs.position': regex }, { 'jobs.stage': regex } ];
+      }
+
+      if (Object.keys(jobMatch).length) pipeline.push({ $match: jobMatch });
+
+      // Replace root with jobs document so we can sort/group easily
+      pipeline.push({ $replaceRoot: { newRoot: '$jobs' } });
+
+      // Sorting
+      if (sort === 'oldest') pipeline.push({ $sort: { date: 1 } });
+      else pipeline.push({ $sort: { date: -1 } });
+
+      // Facet to get paginated data and total count
+      pipeline.push({ $facet: {
+        data: [ { $skip: (page - 1) * pageSize }, { $limit: pageSize } ],
+        total: [ { $count: 'count' } ]
+      }});
+
+      const agg = await users.aggregate(pipeline).toArray();
+      const data = (agg[0] && Array.isArray(agg[0].data)) ? agg[0].data : [];
+      const totalCount = (agg[0] && Array.isArray(agg[0].total) && agg[0].total[0]) ? agg[0].total[0].count : 0;
+
+      const jobs = data.map(j => ({ ...j, _id: j._id && j._id.toString ? j._id.toString() : j._id }));
+      return res.json({ jobs, total: totalCount });
+    }
+
+    // Fallback for in-memory stub: filter on server side in JS and paginate
+    let jobs = Array.isArray(userDoc.jobs) ? userDoc.jobs.slice() : [];
+    if (companies && companies.length) jobs = jobs.filter(j => companies.includes(String(j.company)));
+    if (positions && positions.length) jobs = jobs.filter(j => positions.includes(String(j.position)));
+    if (stages && stages.length) jobs = jobs.filter(j => stages.includes(String(j.stage || '')));
+    if (dateFrom) {
+      const from = new Date(dateFrom);
+      jobs = jobs.filter(j => new Date(j.date) >= from);
+    }
+    if (dateTo) {
+      const to = new Date(dateTo);
+      to.setHours(23,59,59,999);
+      jobs = jobs.filter(j => new Date(j.date) <= to);
+    }
+    if (q) {
+      const qq = String(q).toLowerCase();
+      jobs = jobs.filter(j => (String(j.company || '').toLowerCase().includes(qq) || String(j.position || '').toLowerCase().includes(qq) || String(j.stage || '').toLowerCase().includes(qq)));
+    }
+
+    if (sort === 'oldest') jobs.sort((a,b) => new Date(a.date) - new Date(b.date));
+    else jobs.sort((a,b) => new Date(b.date) - new Date(a.date));
+
+    const totalCount = jobs.length;
+    const start = (page - 1) * pageSize;
+    const paged = jobs.slice(start, start + pageSize).map(j => ({ ...j, _id: j._id && j._id.toString ? j._id.toString() : j._id }));
+    return res.json({ jobs: paged, total: totalCount });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch jobs: ' + error.message });
   }

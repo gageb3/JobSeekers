@@ -47,86 +47,245 @@ function showSaveIndicator(element, success = true) {
     }, 2000);
 }
 
-// READ - Load all jobs
-async function loadJobs() {
+// READ - Load jobs from server with search/sort/date range and pagination
+async function loadJobs(filters = null, page = 1, pageSize = 10) {
     try {
-        const response = await fetch('/api/jobs');
-        const jobs = await response.json();
+        const params = new URLSearchParams();
+        if (filters) {
+            if (filters.q) params.set('q', filters.q);
+            if (filters.dateFrom) params.set('dateFrom', filters.dateFrom);
+            if (filters.dateTo) params.set('dateTo', filters.dateTo);
+            if (filters.dateSort) params.set('sort', filters.dateSort);
+        }
+        params.set('page', String(page));
+        params.set('pageSize', String(pageSize));
 
-        const jobList = document.getElementById('jobList');
+        const url = '/api/jobs?' + params.toString();
+        const response = await fetch(url);
+        const payload = await response.json();
 
-        if (jobs.length === 0) {
+        // payload is { jobs: [], total: N }
+        const jobs = payload && payload.jobs ? payload.jobs : [];
+        const total = payload && typeof payload.total === 'number' ? payload.total : (jobs.length || 0);
+
+        // remember current paging
+        window.__currentPage = page;
+        window.__pageSize = pageSize;
+        window.__totalJobs = total;
+
+            renderJobs(jobs || []);
+            renderPageSummary(total, page, pageSize);
+            renderPagination(total, page, pageSize);
+            showMessage(`Loaded ${jobs.length} of ${total} jobs.`, 'info');
+    } catch (error) {
+        showMessage(`❌ Error loading jobs: ${error.message}`, 'danger');
+    }
+}
+
+// Render jobs into the jobList container (keeps existing DOM structure expected by other functions)
+function renderJobs(jobs) {
+    const jobList = document.getElementById('jobList');
+    // If no jobs on this page, but there are jobs in other pages (total > 0), show hint
+    const total = window.__totalJobs || 0;
+    if (!jobs || jobs.length === 0) {
+        if (total > 0) {
+            // no jobs on this page (page may be beyond last) — suggest jumping to last page
+            const lastPage = Math.max(1, Math.ceil(total / (window.__pageSize || 10)));
             jobList.innerHTML = `
-                        <div class="text-center text-muted py-4">
-                            <i class="bi bi-earbuds fs-1"></i>
-                            <p>No jobs found. Add to the database!</p>
-                        </div>
-                    `;
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-exclamation-circle fs-1"></i>
+                    <p>No results on this page.</p>
+                    <p class="small text-muted">There are ${total} matching jobs across ${lastPage} page(s).</p>
+                    <button class="btn btn-sm btn-primary" id="goLastPage">Go to last page (${lastPage})</button>
+                </div>
+            `;
+            const btn = document.getElementById('goLastPage');
+            if (btn) btn.addEventListener('click', () => {
+                const f = getSearchAndFilter();
+                loadJobs(f, lastPage, window.__pageSize || 10);
+            });
             return;
         }
 
-        jobList.innerHTML = jobs.map(job => `
-                    <div class="card mb-3 job-card" data-job-id="${job._id}">
-                        <div class="card-body">
-                            <div class="row align-items-center">
-                                <div class="col-md-3">
-                                    <strong>Company:</strong>
-                                    <div class="editable-field" 
-                                         data-field="company" 
-                                         data-job-id="${job._id}"
-                                         title="Click to edit company">${job.company}</div>
-                                </div>
-                                <div class="col-md-2">
-                                    <strong>Position:</strong>
-                                    <div class="editable-field" 
-                                         data-field="position" 
-                                         data-job-id="${job._id}"
-                                         title="Click to edit position">${job.position}</div>
-                                </div>
-                                <div class="col-md-2">
-                                    <strong>Date:</strong>
-                                    <div class="editable-field" 
-                                         data-field="date" 
-                                         data-job-id="${job._id}"
-                                         title="Click to edit date">${jobToISOString(job)}</div>
-                                </div>
-                                <div class="col-md-3">
-                                    <small class="text-muted">
-                                        <i class="bi bi-tag"></i> ID: ${job._id}
-                                    </small>
-                                </div>
-                                <div class="col-md-2 text-end">
-                                    <button class="btn btn-outline-danger btn-sm" 
-                                            onclick="deleteJob('${job._id}', '${job.position}')">
-                                        <i class="bi bi-trash"></i> Delete
-                                    </button>
-                                </div>
+        jobList.innerHTML = `
+            <div class="text-center text-muted py-4">
+                <i class="bi bi-earbuds fs-1"></i>
+                <p>No jobs found. Add to the database!</p>
+            </div>
+        `;
+        return;
+    }
+
+    jobList.innerHTML = jobs.map(job => `
+                <div class="card mb-3 job-card" data-job-id="${job._id}">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-md-3">
+                                <strong>Company:</strong>
+                                <div class="editable-field" 
+                                     data-field="company" 
+                                     data-job-id="${job._id}"
+                                     title="Click to edit company">${job.company}</div>
                             </div>
-                            <div class="row mt-2">
-                                <div class="col-12">
-                                    <label class="form-label mb-1"><strong>Stage:</strong></label>
-                                    <input type="text" 
-                                           class="form-control form-control-sm stage-input" 
-                                           data-job-id="${job._id}" 
-                                           value="${job.stage || ''}" 
-                                           data-initial="${job.stage || ''}" 
-                                           placeholder="e.g., Applied, Phone Screen, Offer" />
-                                </div>
+                            <div class="col-md-2">
+                                <strong>Position:</strong>
+                                <div class="editable-field" 
+                                     data-field="position" 
+                                     data-job-id="${job._id}"
+                                     title="Click to edit position">${job.position}</div>
+                            </div>
+                            <div class="col-md-2">
+                                <strong>Date:</strong>
+                                <div class="editable-field" 
+                                     data-field="date" 
+                                     data-job-id="${job._id}"
+                                     title="Click to edit date">${jobToISOString(job)}</div>
+                            </div>
+                            <div class="col-md-3">
+                                <small class="text-muted">
+                                    <i class="bi bi-tag"></i> ID: ${job._id}
+                                </small>
+                            </div>
+                            <div class="col-md-2 text-end">
+                                <button class="btn btn-outline-danger btn-sm" 
+                                        onclick="deleteJob('${job._id}', '${job.position}')">
+                                    <i class="bi bi-trash"></i> Delete
+                                </button>
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-12">
+                                <label class="form-label mb-1"><strong>Stage:</strong></label>
+                                <input type="text" 
+                                       class="form-control form-control-sm stage-input" 
+                                       data-job-id="${job._id}" 
+                                       value="${job.stage || ''}" 
+                                       data-initial="${job.stage || ''}" 
+                                       placeholder="e.g., Applied, Phone Screen, Offer" />
                             </div>
                         </div>
                     </div>
-                `).join('');
+                </div>
+            `).join('');
 
     // Add click event listeners for inline editing
     addInlineEditListeners();
     // Add listeners for stage inputs (always visible textbox under each job)
     addStageInputListeners();
-
-        showMessage(`Loaded ${jobs.length} jobs. Click any field to edit!`, 'info');
-    } catch (error) {
-        showMessage(`❌ Error loading jobs: ${error.message}`, 'danger');
-    }
 }
+
+// Populate filter checkbox lists from jobs (unique values)
+// No longer populate checkbox filters — we use a search bar. Removed implementation.
+// (populateFilterOptions removed)
+
+// escape minimal HTML in labels
+function escapeHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// Read current filter selections and return filter object
+// (getSelectedFilters removed) — the UI now uses getSearchAndFilter() for search + date/sort.
+
+// client-side filtering removed — server performs searching and pagination
+
+// Called by UI Apply button
+// Called by UI Apply button (search bar + date controls)
+function applyFilters() {
+    const f = getSearchAndFilter();
+    window.__activeFilters = f;
+    loadJobs(f, 1, window.__pageSize || 10);
+}
+
+function resetFilters() {
+    // clear UI controls
+    document.getElementById('filterDateFrom').value = '';
+    document.getElementById('filterDateTo').value = '';
+    document.getElementById('filterDateSort').value = 'newest';
+    window.__activeFilters = null;
+    // reload using current search (do not clear search field)
+    const f = getSearchAndFilter();
+    loadJobs(f, 1, window.__pageSize || 10);
+}
+
+// Read search input and date/sort controls into a single filter object
+function getSearchAndFilter() {
+    const q = (document.getElementById('searchInput') && document.getElementById('searchInput').value) || '';
+    return {
+        q: q.trim() || null,
+        dateFrom: document.getElementById('filterDateFrom').value || null,
+        dateTo: document.getElementById('filterDateTo').value || null,
+        dateSort: document.getElementById('filterDateSort').value || 'newest'
+    };
+}
+
+// Pagination rendering and handlers
+function renderPagination(total, page, pageSize) {
+    const container = document.getElementById('paginationControls');
+    if (!container) return;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    let html = '';
+
+    // simple previous button
+    html += `<nav aria-label="jobs-pagination"><ul class="pagination justify-content-center mb-0">`;
+    html += `<li class="page-item ${page <= 1 ? 'disabled' : ''}"><a class="page-link" href="#" data-page="${page-1}">Previous</a></li>`;
+
+    // show up to 7 page links centered around current
+    const maxLinks = 7;
+    let start = Math.max(1, page - Math.floor(maxLinks/2));
+    let end = Math.min(totalPages, start + maxLinks - 1);
+    if (end - start < maxLinks - 1) start = Math.max(1, end - maxLinks + 1);
+
+    for (let p = start; p <= end; p++) {
+        html += `<li class="page-item ${p === page ? 'active' : ''}"><a class="page-link" href="#" data-page="${p}">${p}</a></li>`;
+    }
+
+    html += `<li class="page-item ${page >= totalPages ? 'disabled' : ''}"><a class="page-link" href="#" data-page="${page+1}">Next</a></li>`;
+    html += `</ul></nav>`;
+
+    container.innerHTML = html;
+
+    // attach listeners
+    container.querySelectorAll('a.page-link').forEach(a => {
+        a.addEventListener('click', (ev) => {
+            ev.preventDefault();
+            const p = parseInt(a.getAttribute('data-page'), 10) || 1;
+            if (p < 1) return;
+            const f = getSearchAndFilter();
+            loadJobs(f, p, window.__pageSize || 10);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+    });
+
+    // update page summary as well
+    renderPageSummary(total, page, pageSize);
+}
+
+// Render a small "Showing x–y of N" summary next to the page-size selector
+function renderPageSummary(total, page, pageSize) {
+    const el = document.getElementById('pageSummary');
+    if (!el) return;
+    const t = Math.max(0, Number(total) || 0);
+    if (t === 0) {
+        el.textContent = 'Showing 0 of 0';
+        return;
+    }
+    const p = Math.max(1, parseInt(page, 10) || 1);
+    const ps = Math.max(1, parseInt(pageSize, 10) || 10);
+    const start = Math.min(t, (p - 1) * ps + 1);
+    const end = Math.min(t, p * ps);
+    el.textContent = `Showing ${start}-${end} of ${t}`;
+}
+
+// (toggleFilterPanel removed)
+
+// Compute and update the active filter badge UI
+// (updateFilterBadge removed)
+
+// Read UI controls and update badge (used by change listeners)
+// (updateFilterBadgeFromUI removed)
+
+// attach live update listeners to filter controls after options are rendered
+// (attachFilterControlListeners removed)
 
 // Add listeners for stage input elements (visible textbox under each job card)
 function addStageInputListeners() {
@@ -321,6 +480,22 @@ async function cleanupDatabase() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+    // default page size for pagination
+    window.__pageSize = window.__pageSize || 10;
+
+    // wire page size chooser if present
+    const pageSizeSelect = document.getElementById('pageSizeSelect');
+    if (pageSizeSelect) {
+        // set UI to current value
+        pageSizeSelect.value = String(window.__pageSize || 10);
+        pageSizeSelect.addEventListener('change', () => {
+            const v = parseInt(pageSizeSelect.value, 10) || 10;
+            window.__pageSize = v;
+            // reload starting at page 1 with new page size
+            const f = getSearchAndFilter();
+            loadJobs(f, 1, window.__pageSize);
+        });
+    }
 
 // CREATE - Add new job
 document.getElementById('addJobForm').addEventListener('submit', async (e) => {
@@ -355,5 +530,6 @@ document.getElementById('addJobForm').addEventListener('submit', async (e) => {
 });
 
 // Load jobs when page loads
-    loadJobs();
+    // initial load uses selected page size
+    loadJobs(getSearchAndFilter(), 1, window.__pageSize || 10);
 });
