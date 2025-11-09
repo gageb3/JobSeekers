@@ -12,12 +12,12 @@ function showMessage(message, type = 'info') {
     }, 5000);
 }
 
-// Utility: normalize a job's date to an ISO YYYY-MM-DD string
+// Utility: format a job's date for display as MM/DD/YYYY
 function jobToISOString(job) {
     try {
         if (!job || job.date === undefined || job.date === null) return '';
 
-        // If it's already a string, try to parse it
+        // Normalize to a Date instance
         const d = (typeof job.date === 'string' || typeof job.date === 'number')
             ? new Date(job.date)
             : job.date instanceof Date
@@ -26,7 +26,40 @@ function jobToISOString(job) {
 
         if (isNaN(d.getTime())) return '';
 
-        return d.toISOString().split('T')[0];
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        const yyyy = d.getFullYear();
+        return `${mm}/${dd}/${yyyy}`;
+    } catch (err) {
+        return '';
+    }
+}
+
+// Convert various date inputs (Date, timestamp, or display string) to an <input type="date"> value (YYYY-MM-DD)
+function dateToInputValue(dateLike) {
+    try {
+        if (!dateLike && dateLike !== 0) return '';
+        // If it's already in YYYY-MM-DD format, return as-is when valid
+        if (typeof dateLike === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateLike)) return dateLike;
+
+        // If it's in MM/DD/YYYY (display) format, convert
+        if (typeof dateLike === 'string' && /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateLike)) {
+            const parts = dateLike.split('/').map(p => p.padStart(2, '0'));
+            // parts: [MM, DD, YYYY]
+            return `${parts[2]}-${parts[0]}-${parts[1]}`;
+        }
+
+        const d = (typeof dateLike === 'string' || typeof dateLike === 'number')
+            ? new Date(dateLike)
+            : dateLike instanceof Date
+                ? dateLike
+                : new Date(dateLike);
+
+        if (isNaN(d.getTime())) return '';
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
     } catch (err) {
         return '';
     }
@@ -120,31 +153,26 @@ function renderJobs(jobs) {
                 <div class="card mb-3 job-card" data-job-id="${job._id}">
                     <div class="card-body">
                         <div class="row align-items-center">
-                            <div class="col-md-3">
+                            <div class="col-md-4">
                                 <strong>Company:</strong>
                                 <div class="editable-field" 
                                      data-field="company" 
                                      data-job-id="${job._id}"
                                      title="Click to edit company">${job.company}</div>
                             </div>
-                            <div class="col-md-2">
+                            <div class="col-md-3">
                                 <strong>Position:</strong>
                                 <div class="editable-field" 
                                      data-field="position" 
                                      data-job-id="${job._id}"
                                      title="Click to edit position">${job.position}</div>
                             </div>
-                            <div class="col-md-2">
+                            <div class="col-md-3">
                                 <strong>Date:</strong>
                                 <div class="editable-field" 
                                      data-field="date" 
                                      data-job-id="${job._id}"
                                      title="Click to edit date">${jobToISOString(job)}</div>
-                            </div>
-                            <div class="col-md-3">
-                                <small class="text-muted">
-                                    <i class="bi bi-tag"></i> ID: ${job._id}
-                                </small>
                             </div>
                             <div class="col-md-2 text-end">
                                 <button class="btn btn-outline-danger btn-sm" 
@@ -174,21 +202,13 @@ function renderJobs(jobs) {
     addStageInputListeners();
 }
 
-// Populate filter checkbox lists from jobs (unique values)
-// No longer populate checkbox filters — we use a search bar. Removed implementation.
-// (populateFilterOptions removed)
 
 // escape minimal HTML in labels
 function escapeHtml(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-// Read current filter selections and return filter object
-// (getSelectedFilters removed) — the UI now uses getSearchAndFilter() for search + date/sort.
 
-// client-side filtering removed — server performs searching and pagination
-
-// Called by UI Apply button
 // Called by UI Apply button (search bar + date controls)
 function applyFilters() {
     const f = getSearchAndFilter();
@@ -276,16 +296,6 @@ function renderPageSummary(total, page, pageSize) {
     el.textContent = `Showing ${start}-${end} of ${t}`;
 }
 
-// (toggleFilterPanel removed)
-
-// Compute and update the active filter badge UI
-// (updateFilterBadge removed)
-
-// Read UI controls and update badge (used by change listeners)
-// (updateFilterBadgeFromUI removed)
-
-// attach live update listeners to filter controls after options are rendered
-// (attachFilterControlListeners removed)
 
 // Add listeners for stage input elements (visible textbox under each job card)
 function addStageInputListeners() {
@@ -335,7 +345,12 @@ function addInlineEditListeners() {
             // Create input element
             const input = document.createElement('input');
             input.type = fieldType === 'date' ? 'date' : 'text';
-            input.value = currentValue;
+            // For dates, the displayed format is MM/DD/YYYY but <input type="date"> expects YYYY-MM-DD
+            if (fieldType === 'date') {
+                input.value = dateToInputValue(currentValue) || '';
+            } else {
+                input.value = currentValue;
+            }
             input.className = 'form-control form-control-sm';
 
 
