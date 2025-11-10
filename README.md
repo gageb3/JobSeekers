@@ -24,9 +24,17 @@ so that I can keep track of my applications better
 - Deployment: Staging on Render, production on Google Cloud (IaaS)
 - Documentation: Full README, issues, Wiki, and project board.
 
-## KM
-- The Job Tracker App helps users keep all of their job search information in one organized place. It turns scattered notes, emails, and lists into an easy-to-use system where users can see what jobs they have applied for, track updates, and remember follow-ups. <br>
-- This will save time by cutting out repetitive tasks like checking multiple sites or retyping the same details. The app helps users stay on top of their job search, avoid missing deadlines, and make better decisions using organized information.
+## 💡 Knowledge Management
+
+The Job Tracker App helps users keep all of their job search information in one organized place. It turns scattered notes, emails, and lists into an easy-to-use system where users can see what jobs they have applied for, track updates, and remember follow-ups.
+
+Beyond simple record keeping, the app supports **knowledge management** by capturing and organizing key data from each stage of the job search. Users can record company names, positions, dates applied, and the current stage of each application, which turns personal experiences into structured information that can be reviewed and analyzed later.  
+
+By centralizing this information, the app allows users to **identify patterns** such as which types of applications lead to interviews or which deadlines are approaching soon. This helps transform raw data into meaningful insights that support better decision-making.
+
+The app also reduces redundancy by allowing users to update or reference previous entries instead of starting from scratch each time. This ensures that knowledge is **retained, searchable, and reusable**, rather than being lost across different notes or spreadsheets.
+
+In short, the Job Tracker App acts as a **personal knowledge management system** for job hunting, which saves time, improves organization, and helps users make informed choices based on their own collected data.
 
 ## LINKS
 * [Product Proposal](https://github.com/gageb3/Recruiters/wiki/Product-Overview)
