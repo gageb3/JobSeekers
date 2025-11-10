@@ -4,25 +4,22 @@ More about our [Process](https://github.com/gageb3/Recruiters/wiki/Dev-Processes
 Project: [Job Application Tracker](https://github.com/gageb3/Recruiters/wiki/Demo-Script)
 
 ## USER STORY
-**As a** job seeker<br>
-**I want to** have a list of jobs I have applied to<br>
+**As a** job seeker <br>
+**I want to** have a list of jobs I have applied to <br>
 **so that I** can keep track of my applications better
 
 ## BLUF
-**- What:** A web based job application tracker that helps users organize, monitor, and analyze their job search progress in one place. <br>
-**- Who:** Designed for job seekers managing multiple applications, interviews, and follow-ups across different platforms. <br>
-**- Value:** Simplifies the job hunting process by displaying all job applications that the user has applied for, making the process more organized and optimal for the job searching process. <br>
-**- Primary Metric:** Reduces average time users spend manually managing job applications by 30%. <br>
-- If a user currently spends 10 hours a week organizing job applications, the app could reduce that to 7 hours a week.
+Meet Joe, a job seeker who’s applied to dozens of positions scattered across job boards, emails, and spreadsheets. **J*bList** brings all of that chaos into one simple web app, helping users to organize/monitor, and follow up on every application from a single dashboard. Designed for busy job seekers juggling multiple opportunities, it streamlines the job search process and reduces the time spent manually tracking applications by up to **30%**. Turning a 10-hour weekly chore into just 7 hours of organized progress.
+
 
 ## MINIMUM ACCEPTANCE CRITERIA
-- CRUD Operations: Users can create, view, update, and delete job applications with key details. Example: Company, Position, status, dates.
-- Authentication: Secure signup/login with encrypted passwords and JWT tokens.
-- Authorization: Role-Based Access (Admin)
-- Notifications: Email reminders for interviews, deadlines, or follow-ups.
-- RESTful API: Express.js routes handle all CRUD and auth operations
-- Deployment: Staging on Render, production on Google Cloud (IaaS)
-- Documentation: Full README, issues, Wiki, and project board.
+- **CRUD Operations:** Users can create, view, update, and delete job applications with key details. Example: Company, Position, status, dates. <br>
+- **Authentication:** Secure signup/login with encrypted passwords and JWT tokens. <br>
+- **Authorization:** Role-Based Access (Admin) <br>
+- **Notifications:** Email reminders for interviews, deadlines, or follow-ups. <br>
+- **RESTful API:** Express.js routes handle all CRUD and auth operations. <br>
+- **Deployment:** Staging on Render, production on Google Cloud. (IaaS) <br>
+- **Documentation:** Full README, issues, Wiki, and project board. <br>
 
 ## KM
 - The Job Tracker App helps users keep all of their job search information in one organized place. It turns scattered notes, emails, and lists into an easy-to-use system where users can see what jobs they have applied for, track updates, and remember follow-ups. <br>
