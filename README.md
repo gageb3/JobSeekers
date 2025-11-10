@@ -24,7 +24,7 @@ so that I can keep track of my applications better
 - Deployment: Staging on Render, production on Google Cloud (IaaS)
 - Documentation: Full README, issues, Wiki, and project board.
 
-## 💡 Knowledge Management
+## KNOWLEDGE MANAGEMENT
 
 The Job Tracker App helps users keep all of their job search information in one organized place. It turns scattered notes, emails, and lists into an easy-to-use system where users can see what jobs they have applied for, track updates, and remember follow-ups.
 
