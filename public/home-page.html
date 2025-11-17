@@ -143,7 +143,9 @@
         // server-side guard: check /api/me and redirect to login if unauthenticated
         (async () => {
             try {
-                const r = await fetch('/api/me');
+                const token = localStorage.getItem('token');
+                const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+                const r = await fetch('/api/me', { headers });
                 if (!r.ok) {
                     window.location = '/';
                 }
@@ -153,7 +155,10 @@
         })();
         // helper to logout from UI
         async function logout() {
-            await fetch('/api/logout', { method: 'POST' });
+            const token = localStorage.getItem('token');
+            const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+            await fetch('/api/logout', { method: 'POST', headers });
+            localStorage.removeItem('token');
             window.location = '/';
         }
     </script>

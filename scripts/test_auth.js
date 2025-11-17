@@ -5,16 +5,19 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: 'test1', password: 'pass1' }),
     });
-    const registerText = await registerRes.text();
-    console.log('register status', registerRes.status, registerText);
-    const setCookie = registerRes.headers.get('set-cookie');
-    console.log('set-cookie:', setCookie);
+    const registerData = await registerRes.json();
+    console.log('register status', registerRes.status, registerData);
 
-    const headers = {};
-    if (setCookie) headers['cookie'] = setCookie.split(';')[0];
+    const token = registerData.token;
+    if (!token) {
+      console.error('No token received during registration');
+      return;
+    }
+
+    const headers = { Authorization: `Bearer ${token}` };
 
     const meRes = await fetch('http://localhost:3000/api/me', { headers });
-    console.log('me status', meRes.status, await meRes.text());
+    console.log('me status', meRes.status, await meRes.json());
   } catch (err) {
     console.error(err);
   }

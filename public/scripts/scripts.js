@@ -80,6 +80,14 @@ function showSaveIndicator(element, success = true) {
     }, 2000);
 }
 
+// Helper to return auth headers for protected API calls
+function authHeaders(extra = {}) {
+    const token = localStorage.getItem('token');
+    const h = { ...extra };
+    if (token) h['Authorization'] = `Bearer ${token}`;
+    return h;
+}
+
 // READ - Load jobs from server with search/sort/date range and pagination
 async function loadJobs(filters = null, page = 1, pageSize = 10) {
     try {
@@ -94,7 +102,15 @@ async function loadJobs(filters = null, page = 1, pageSize = 10) {
         params.set('pageSize', String(pageSize));
 
         const url = '/api/jobs?' + params.toString();
-        const response = await fetch(url);
+        const response = await fetch(url, { headers: authHeaders() });
+
+        if (response.status === 401 || response.status === 403) {
+            // token invalid/expired — redirect to login
+            localStorage.removeItem('token');
+            window.location = '/';
+            return;
+        }
+
         const payload = await response.json();
 
         // payload is { jobs: [], total: N }
@@ -415,11 +431,15 @@ async function updateJobField(jobId, field, value) {
 
         const response = await fetch(`/api/jobs/${jobId}`, {
             method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: authHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify(updateData)
         });
+
+        if (response.status === 401 || response.status === 403) {
+            localStorage.removeItem('token');
+            window.location = '/';
+            return false;
+        }
 
         const result = await response.json();
 
@@ -444,8 +464,15 @@ async function deleteJob(id, position) {
 
     try {
         const response = await fetch(`/api/jobs/${id}`, {
-            method: 'DELETE'
+            method: 'DELETE',
+            headers: authHeaders()
         });
+
+        if (response.status === 401 || response.status === 403) {
+            localStorage.removeItem('token');
+            window.location = '/';
+            return;
+        }
 
         const result = await response.json();
 
@@ -478,8 +505,15 @@ async function cleanupDatabase() {
     try {
         showMessage('🧹 Cleaning database...', 'info');
         const response = await fetch('/api/cleanup', {
-            method: 'DELETE'
+            method: 'DELETE',
+            headers: authHeaders()
         });
+
+        if (response.status === 401 || response.status === 403) {
+            localStorage.removeItem('token');
+            window.location = '/';
+            return;
+        }
 
         const result = await response.json();
 
@@ -524,11 +558,15 @@ document.getElementById('addJobForm').addEventListener('submit', async (e) => {
     try {
         const response = await fetch('/api/jobs', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: authHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify(job)
         });
+
+        if (response.status === 401 || response.status === 403) {
+            localStorage.removeItem('token');
+            window.location = '/';
+            return;
+        }
 
         const result = await response.json();
 

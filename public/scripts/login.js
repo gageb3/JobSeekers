@@ -2,10 +2,22 @@
 document.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('loginForm');
   const msg = document.getElementById('loginMsg');
-  // If session already exists, go to /home
-  fetch('/api/me').then(r => {
-    if (r.ok) window.location = '/home';
-  }).catch(() => {});
+
+  // Check if token exists in localStorage and validate it
+  const token = localStorage.getItem('token');
+  if (token) {
+    fetch('/api/me', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => {
+        if (r.ok) {
+          window.location = '/home';
+        } else {
+          localStorage.removeItem('token');
+        }
+      })
+      .catch(() => {});
+  }
 
   // Register toggle
   let isRegister = false;
@@ -43,21 +55,27 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (isRegister) {
-      if (!passwordConfirm) { msg.textContent = 'Please confirm your password.'; return; }
-      if (password !== passwordConfirm) { msg.textContent = 'Passwords do not match.'; return; }
+      if (!passwordConfirm) {
+        msg.textContent = 'Please confirm your password.';
+        return;
+      }
+      if (password !== passwordConfirm) {
+        msg.textContent = 'Passwords do not match.';
+        return;
+      }
 
       try {
         const res = await fetch('/api/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, password })
+          body: JSON.stringify({ username, password }),
         });
         const data = await res.json();
         if (!res.ok) {
           msg.textContent = data.error || 'Registration failed';
           return;
         }
-        // On success, server creates session — go to home
+        localStorage.setItem('token', data.token);
         window.location = '/home';
       } catch (err) {
         msg.textContent = 'Network error';
@@ -70,14 +88,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const res = await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify({ username, password }),
       });
       const data = await res.json();
       if (!res.ok) {
         msg.textContent = data.error || 'Login failed';
         return;
       }
-      // success — redirect to home
+      localStorage.setItem('token', data.token);
       window.location = '/home';
     } catch (err) {
       msg.textContent = 'Network error';
