@@ -14,17 +14,17 @@
     <div class="container mt-5">
         <div class="row mb-4">
             <div class="col-12">
-                <h1 class="text-center mb-3">Job Database</h1>
-                <p class="text-center text-muted">Website listing jobs. Add your own Job titles</p>
+                <h1 class="text-center mb-3">J*bList</h1>
+                <p class="text-center text-muted">Helping you keep track of your career!</p>
             </div>
         </div>
 
         <!-- Add Job Section -->
         <div class="row mb-4">
             <div class="col-md-8 mx-auto">
-                <div class="card border-success">
-                    <div class="card-header bg-success text-white">
-                        <h5 class="mb-0"><i class="bi-soundwave"></i> Add New Job</h5>
+                <div class="card border-secondary">
+                    <div class="card-header bg-secondary text-white">
+                        <h5 class="mb-0"><i class="bi-archive"></i> Add New Job</h5>
                     </div>
                     <div class="card-body">
                         <form id="addJobForm" class="row g-3">
@@ -41,7 +41,7 @@
                                 <input type="date" class="form-control" id="date" required>
                             </div>
                             <div class="col-md-2 d-flex align-items-end">
-                                <button type="submit" class="btn btn-success w-100">
+                                <button type="submit" class="btn btn-secondary w-100">
                                     <i class="bi bi-plus-circle"></i> Add
                                 </button>
                             </div>
@@ -55,7 +55,7 @@
         <!-- Database Management Section -->
         <div class="row mb-4">
             <div class="col-12">
-                <div class="card text-white">
+                <div class="card text-black">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center">
                             <h5 class="card-title mb-0"><i class="bi bi-tools"></i> Filtering</h5>
@@ -101,7 +101,7 @@
                                     </select>
                                 </div>
                                 <div class="ms-2 d-flex align-items-center">
-                                    <small id="pageSummary" class="text-white-50 small">Showing 0-0 of 0</small>
+                                    <small id="pageSummary" class="text-black-50 small">Showing 0-0 of 0</small>
                                 </div>
 
                                 <button class="btn btn-danger btn-sm" onclick="cleanupDatabase()">
@@ -122,8 +122,8 @@
         <div class="row">
             <div class="col-12">
                 <div class="card">
-                    <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0"><i class="bi-file-music-fill"></i> Job List</h5>
+                    <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi-card-checklist"></i> Job List</h5>
                         <div class="click-hint">💡 Click on any field to edit instantly!</div>
                     </div>
                     <div class="card-body">
