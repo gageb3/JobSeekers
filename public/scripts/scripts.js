@@ -158,7 +158,7 @@ function renderJobs(jobs) {
 
         jobList.innerHTML = `
             <div class="text-center text-muted py-4">
-                <i class="bi bi-earbuds fs-1"></i>
+                <i class="bi bi-slash-circle fs-1"></i>
                 <p>No jobs found. Add to the database!</p>
             </div>
         `;
@@ -585,4 +585,5 @@ document.getElementById('addJobForm').addEventListener('submit', async (e) => {
 // Load jobs when page loads
     // initial load uses selected page size
     loadJobs(getSearchAndFilter(), 1, window.__pageSize || 10);
+
 });
