@@ -1,4 +1,4 @@
-name: deploy-ideas
+name: deploy-JobSeekers
 
 on:
   push:
